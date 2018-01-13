@@ -1,0 +1,6 @@
+[package]
+name = "high_line"
+version = "0.1.0"
+authors = ["Jeff Walker Code Ranger <Jeff@WalkerCodeRanger.com>"]
+
+[dependencies]
