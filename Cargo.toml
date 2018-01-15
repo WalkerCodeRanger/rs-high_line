@@ -4,3 +4,7 @@ version = "0.1.0"
 authors = ["Jeff Walker Code Ranger <Jeff@WalkerCodeRanger.com>"]
 
 [dependencies]
+
+# TODO can we restrict this to the usage example?
+[dev-dependencies]
+chrono = "0.4"
