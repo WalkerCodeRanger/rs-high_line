@@ -23,7 +23,12 @@ pub fn ask(prompt: &str) -> PromptBuilder<String> {
 }
 
 impl<'a, T: 'a> PromptBuilder<'a, T> {
-    pub fn error_prompt_to(self, error: &str, input: &mut BufRead, output: &mut Write) -> T {
+    pub fn error_prompt_to<R: BufRead, W: Write>(
+        self,
+        error: &str,
+        mut input: R,
+        mut output: W,
+    ) -> T {
         let mut buffer = String::new();
         loop {
             output.write(self.prompt.as_bytes()).unwrap();
@@ -99,6 +104,11 @@ impl<'a> PromptBuilder<'a, String> {
         return self.transform(T::parse).error_prompt(T::ERROR_PROMPT);
     }
 
+    pub fn prompt_to<T: DefaultPrompt, R: BufRead, W: Write>(self, input: R, output: W) -> T {
+        return self.transform(T::parse)
+            .error_prompt_to(T::ERROR_PROMPT, input, output);
+    }
+
     pub fn parse_as<T: DefaultPrompt + 'a>(self) -> PromptBuilder<'a, T> {
         return self.transform(T::parse);
     }
@@ -127,16 +137,50 @@ impl DefaultPrompt for u64 {
 
 #[cfg(test)]
 mod tests {
-    //use {ask};
+    use ask;
 
-    // #[test]
-    // fn ask_has_default_error_prompt() {
-    //     assert_eq!(ask("?").error_prompt, "Please enter a value.");
-    // }
+    fn setup(input: &[u8]) -> (&[u8], Vec<u8>) {
+        return (input, Vec::new());
+    }
 
-    // #[test]
-    // fn play() {
-    //     let b = Builder {};
-    //     b.parse_as();
-    // }
+    fn output_string(output: Vec<u8>) -> String {
+        return String::from_utf8(output).expect("Not UTF-8");
+    }
+
+    #[test]
+    fn ask_for_string() {
+        let (input, mut output) = setup(b"My Value\n");
+
+        let value: String = ask("Value?").prompt_to(&input[..], &mut output);
+
+        assert_eq!(output_string(output), "Value? ");
+        assert_eq!(value, "My Value")
+    }
+
+    // TODO this test is failing becuase it isn't using the DefaultPrompt for String,
+    // instead it is using error_prompt_to() which works for string and doesn't check for empty
+    #[test]
+    fn ask_for_string_with_error_prompt_doesnt_accept_empty() {
+        let (input, mut output) = setup(b"\nMy Value\n");
+
+        let value: String =
+            ask("Value?").error_prompt_to("Please enter a value.", &input[..], &mut output);
+
+        assert_eq!(value, "My Value");
+        assert_eq!(output_string(output), "Value? Please enter a value.\n");
+    }
+
+    #[test]
+    fn ask_repeats_error_prompt() {
+        let (input, mut output) = setup(b"\n\nMy Value\n");
+
+        let value: String = ask("Value?").prompt_to(&input[..], &mut output);
+
+        assert_eq!(
+            output_string(output),
+            "Value? Please enter a value.\nValue? Please enter a value.\nValue? "
+        );
+        assert_eq!(value, "My Value")
+    }
+
 }
