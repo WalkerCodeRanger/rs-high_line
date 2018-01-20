@@ -1,18 +1,19 @@
-use std::str::FromStr;
 use std::io::{stdin, stdout, BufRead, Write};
+
+mod result;
+use result::PromptResult;
+use result::PromptResult::*;
+
+mod default;
+use default::DefaultPrompt;
 
 pub struct PromptBuilder<'a, T> {
     prompt: &'a str,
-    parse: Box<Fn(String) -> Option<T> + 'a>,
+    parse: Box<Fn(String) -> PromptResult<T> + 'a>,
 }
 
-pub trait DefaultPrompt: Sized {
-    fn parse(String) -> Option<Self>;
-    const ERROR_PROMPT: &'static str;
-}
-
-fn string_identity(value: String) -> Option<String> {
-    return Some(value);
+fn string_identity(value: String) -> PromptResult<String> {
+    return Answer(value);
 }
 
 pub fn ask(prompt: &str) -> PromptBuilder<String> {
@@ -42,14 +43,17 @@ impl<'a, T: 'a> PromptBuilder<'a, T> {
             }
             buffer.pop(); // remove newline
             match (self.parse)(buffer) {
-                Some(value) => {
+                Answer(value) => {
                     return value;
                 }
-                None => {
+                Error => {
                     output.write(error.as_bytes()).unwrap();
                     output.write(b"\n").unwrap();
                     output.flush().unwrap();
                     buffer = String::new();
+                }
+                Exit => {
+                    unimplemented!();
                 }
             }
         }
@@ -67,7 +71,7 @@ impl<'a, T: 'a> PromptBuilder<'a, T> {
     ) -> PromptBuilder<'a, U> {
         // destructuring so the compiler knows that only parse needs to live long enough to be used by the closure
         let PromptBuilder { prompt, parse } = self;
-        let parse = move |s| parse(s).and_then(|t| parse_value(t).ok());
+        let parse = move |s| parse(s).and_then(|t| parse_value(t).into());
         return PromptBuilder {
             prompt,
             parse: Box::new(parse),
@@ -81,7 +85,7 @@ impl<'a, T: 'a> PromptBuilder<'a, T> {
         // destructuring so the compiler knows that only parse needs to live long enough to be used by the closure
         let PromptBuilder { prompt, parse } = self;
         // TODO why is the inner closure needed, and how can it be avoided?
-        let parse = move |s| parse(s).and_then(|t| transform_value(t));
+        let parse = move |s| parse(s).and_then(|t| transform_value(t).into());
         return PromptBuilder {
             prompt,
             parse: Box::new(parse),
@@ -91,7 +95,8 @@ impl<'a, T: 'a> PromptBuilder<'a, T> {
     pub fn validate<F: Fn(&T) -> bool + 'a>(self, validate_value: F) -> PromptBuilder<'a, T> {
         // destructuring so the compiler knows that only parse needs to live long enough to be used by the closure
         let PromptBuilder { prompt, parse } = self;
-        let parse = move |s| parse(s).and_then(|t| if validate_value(&t) { Some(t) } else { None });
+        let parse =
+            move |s| parse(s).and_then(|t| if validate_value(&t) { Answer(t) } else { Error });
         return PromptBuilder {
             prompt,
             parse: Box::new(parse),
@@ -112,27 +117,6 @@ impl<'a> PromptBuilder<'a, String> {
     pub fn parse_as<T: DefaultPrompt + 'a>(self) -> PromptBuilder<'a, T> {
         return self.transform(T::parse);
     }
-}
-
-impl DefaultPrompt for String {
-    fn parse(value: String) -> Option<Self> {
-        return if value.is_empty() { None } else { Some(value) };
-    }
-    const ERROR_PROMPT: &'static str = "Please enter a value.";
-}
-
-impl DefaultPrompt for Option<String> {
-    fn parse(value: String) -> Option<Self> {
-        return Some(Some(value));
-    }
-    const ERROR_PROMPT: &'static str = "<Can't Fail>";
-}
-
-impl DefaultPrompt for u64 {
-    fn parse(value: String) -> Option<Self> {
-        return u64::from_str(&value).ok();
-    }
-    const ERROR_PROMPT: &'static str = "Please enter a non-negative number.";
 }
 
 #[cfg(test)]
@@ -157,10 +141,10 @@ mod tests {
         assert_eq!(value, "My Value")
     }
 
-    // TODO this test is failing becuase it isn't using the DefaultPrompt for String,
+    // TODO this test is failing because it isn't using the DefaultPrompt for String,
     // instead it is using error_prompt_to() which works for string and doesn't check for empty
     #[test]
-    fn ask_for_string_with_error_prompt_doesnt_accept_empty() {
+    fn ask_for_string_with_error_prompt_does_not_accept_empty() {
         let (input, mut output) = setup(b"\nMy Value\n");
 
         let value: String =
