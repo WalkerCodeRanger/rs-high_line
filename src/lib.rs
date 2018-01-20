@@ -1,16 +1,21 @@
+use std::marker::PhantomData;
+use std::io::StdoutLock;
+use std::io::StdinLock;
 use std::io::{stdin, stdout, BufRead, Stdin, Stdout, Write};
 
 mod io;
 use io::{Input, Output};
 
-pub struct PromptBuilder<'a, I: Input, O: Output> {
+pub struct PromptBuilder<'a, R: BufRead, I: Input<'a, R>, W: Write, O: Output<'a, W>> {
     input: I,
     output: O,
     prompt: &'a str,
     error_prompt: &'a str,
+    _reader: PhantomData<R>,
+    _writer: PhantomData<W>,
 }
 
-type StdPromptBuilder<'a> = PromptBuilder<'a, Stdin, Stdout>;
+type StdPromptBuilder<'a> = PromptBuilder<'a, StdinLock<'a>, Stdin, StdoutLock<'a>, Stdout>;
 
 pub fn ask(prompt: &str) -> StdPromptBuilder {
     return PromptBuilder {
@@ -18,10 +23,13 @@ pub fn ask(prompt: &str) -> StdPromptBuilder {
         output: stdout(),
         prompt,
         error_prompt: "Please enter a value.",
+        _reader: PhantomData,
+        _writer: PhantomData,
     };
 }
 
-impl<'a, I: Input, O: Output> PromptBuilder<'a, I, O> {
+impl<'a, R: BufRead, I: Input<'a, R> + 'a, W: Write, O: Output<'a, W> + 'a>
+    PromptBuilder<'a, R, I, W, O> {
     pub fn prompt(mut self) -> String {
         let mut buffer = String::new();
         let mut input = self.input.open();
