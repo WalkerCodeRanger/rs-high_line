@@ -5,22 +5,15 @@ use result::PromptResult;
 use result::PromptResult::*;
 
 mod default;
-use default::DefaultPrompt;
+use default::DefaultPromptBuilder;
 
 pub struct PromptBuilder<'a, T> {
     prompt: &'a str,
     parse: Box<Fn(String) -> PromptResult<T> + 'a>,
 }
 
-fn string_identity(value: String) -> PromptResult<String> {
-    return Answer(value);
-}
-
-pub fn ask(prompt: &str) -> PromptBuilder<String> {
-    return PromptBuilder {
-        prompt,
-        parse: Box::new(&string_identity),
-    };
+pub fn ask(prompt: &str) -> DefaultPromptBuilder {
+    return DefaultPromptBuilder::new(prompt);
 }
 
 impl<'a, T: 'a> PromptBuilder<'a, T> {
@@ -104,21 +97,6 @@ impl<'a, T: 'a> PromptBuilder<'a, T> {
     }
 }
 
-impl<'a> PromptBuilder<'a, String> {
-    pub fn prompt<T: DefaultPrompt>(self) -> T {
-        return self.transform(T::parse).error_prompt(T::ERROR_PROMPT);
-    }
-
-    pub fn prompt_to<T: DefaultPrompt, R: BufRead, W: Write>(self, input: R, output: W) -> T {
-        return self.transform(T::parse)
-            .error_prompt_to(T::ERROR_PROMPT, input, output);
-    }
-
-    pub fn parse_as<T: DefaultPrompt + 'a>(self) -> PromptBuilder<'a, T> {
-        return self.transform(T::parse);
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use ask;
@@ -141,8 +119,6 @@ mod tests {
         assert_eq!(value, "My Value")
     }
 
-    // TODO this test is failing because it isn't using the DefaultPrompt for String,
-    // instead it is using error_prompt_to() which works for string and doesn't check for empty
     #[test]
     fn ask_for_string_with_error_prompt_does_not_accept_empty() {
         let (input, mut output) = setup(b"\nMy Value\n");
@@ -151,7 +127,10 @@ mod tests {
             ask("Value?").error_prompt_to("Please enter a value.", &input[..], &mut output);
 
         assert_eq!(value, "My Value");
-        assert_eq!(output_string(output), "Value? Please enter a value.\n");
+        assert_eq!(
+            output_string(output),
+            "Value? Please enter a value.\nValue? "
+        );
     }
 
     #[test]
