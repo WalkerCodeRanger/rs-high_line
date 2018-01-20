@@ -6,16 +6,25 @@ use std::io::{stdin, stdout, BufRead, Stdin, Stdout, Write};
 mod io;
 use io::{Input, Output};
 
-pub struct PromptBuilder<'a, R: BufRead, I: Input<'a, R>, W: Write, O: Output<'a, W>> {
+pub struct PromptBuilder<
+    'a,
+    'b,
+    R: BufRead + 'b,
+    I: Input<'b, R> + 'a,
+    W: Write + 'b,
+    O: Output<'b, W> + 'a,
+> where
+    'a: 'b,
+{
     input: I,
     output: O,
     prompt: &'a str,
     error_prompt: &'a str,
-    _reader: PhantomData<R>,
+    _reader: PhantomData<&'b R>,
     _writer: PhantomData<W>,
 }
 
-type StdPromptBuilder<'a> = PromptBuilder<'a, StdinLock<'a>, Stdin, StdoutLock<'a>, Stdout>;
+type StdPromptBuilder<'a, 'b> = PromptBuilder<'a, 'b, StdinLock<'b>, Stdin, StdoutLock<'a>, Stdout>;
 
 pub fn ask(prompt: &str) -> StdPromptBuilder {
     return PromptBuilder {
@@ -28,8 +37,11 @@ pub fn ask(prompt: &str) -> StdPromptBuilder {
     };
 }
 
-impl<'a, R: BufRead, I: Input<'a, R> + 'a, W: Write, O: Output<'a, W> + 'a>
-    PromptBuilder<'a, R, I, W, O> {
+impl<'a, 'b, R: BufRead + 'b, I: Input<'b, R> + 'a, W: Write + 'b, O: Output<'b, W> + 'a>
+    PromptBuilder<'a, 'b, R, I, W, O>
+where
+    'a: 'b,
+{
     pub fn prompt(mut self) -> String {
         let mut buffer = String::new();
         let mut input = self.input.open();
