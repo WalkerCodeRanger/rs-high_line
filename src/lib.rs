@@ -1,30 +1,17 @@
-use std::marker::PhantomData;
-use std::io::StdoutLock;
-use std::io::StdinLock;
-use std::io::{stdin, stdout, BufRead, Stdin, Stdout, Write};
+#![feature(conservative_impl_trait)]
+use std::io::{stdin, stdout, Stdin, Stdout};
 
 mod io;
 use io::{Input, Output};
 
-pub struct PromptBuilder<
-    'a,
-    'b,
-    R: BufRead + 'b,
-    I: Input<'b, R> + 'a,
-    W: Write + 'b,
-    O: Output<'b, W> + 'a,
-> where
-    'a: 'b,
-{
+pub struct PromptBuilder<'a, I: Input, O: Output> {
     input: I,
     output: O,
     prompt: &'a str,
     error_prompt: &'a str,
-    _reader: PhantomData<&'b R>,
-    _writer: PhantomData<W>,
 }
 
-type StdPromptBuilder<'a, 'b> = PromptBuilder<'a, 'b, StdinLock<'b>, Stdin, StdoutLock<'a>, Stdout>;
+type StdPromptBuilder<'a> = PromptBuilder<'a, Stdin, Stdout>;
 
 pub fn ask(prompt: &str) -> StdPromptBuilder {
     return PromptBuilder {
@@ -32,16 +19,10 @@ pub fn ask(prompt: &str) -> StdPromptBuilder {
         output: stdout(),
         prompt,
         error_prompt: "Please enter a value.",
-        _reader: PhantomData,
-        _writer: PhantomData,
     };
 }
 
-impl<'a, 'b, R: BufRead + 'b, I: Input<'b, R> + 'a, W: Write + 'b, O: Output<'b, W> + 'a>
-    PromptBuilder<'a, 'b, R, I, W, O>
-where
-    'a: 'b,
-{
+impl<'a, I: Input, O: Output> PromptBuilder<'a, I, O> {
     pub fn prompt(mut self) -> String {
         let mut buffer = String::new();
         let mut input = self.input.open();

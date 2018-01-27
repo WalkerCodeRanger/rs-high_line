@@ -1,21 +1,12 @@
-//use std;
-use std::io::StdoutLock;
-use std::io::StdinLock;
 use std::io::{BufRead, Stdin, Stdout, Write};
 
-pub trait Input<'a, R: BufRead + 'a> {
-    fn open<'b>(&'b mut self) -> R
-    where
-        'b: 'a;
+pub trait Input {
+    fn open(&mut self) -> impl BufRead;
 }
 
-impl<'a> Input<'a, StdinLock<'a>> for Stdin {
-    fn open<'b>(&'b mut self) -> StdinLock<'b>
-    where
-        'b: 'a,
-    {
+impl Input for Stdin {
+    fn open(&mut self) -> impl BufRead {
         return self.lock();
-        //return Stdin::lock(self);
     }
 }
 
@@ -25,17 +16,12 @@ impl<'a> Input<'a, StdinLock<'a>> for Stdin {
 //     }
 // }
 
-pub trait Output<'a, W: Write> {
-    fn open<'b>(&'b mut self) -> W
-    where
-        'b: 'a;
+pub trait Output {
+    fn open(&mut self) -> impl Write;
 }
 
-impl<'a> Output<'a, StdoutLock<'a>> for Stdout {
-    fn open<'b>(&'b mut self) -> StdoutLock<'b>
-    where
-        'b: 'a,
-    {
+impl Output for Stdout {
+    fn open(&mut self) -> impl Write {
         return self.lock();
     }
 }
