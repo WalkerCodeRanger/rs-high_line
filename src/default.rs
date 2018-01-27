@@ -1,4 +1,3 @@
-use result::PromptResult::*;
 use std::io::Write;
 use std::io::BufRead;
 use PromptBuilder;
@@ -52,7 +51,7 @@ impl<'a> DefaultPromptBuilder<'a> {
         self,
         parse_value: P,
     ) -> PromptBuilder<'a, U> {
-        let parse = move |s| parse_value(s).into();
+        let parse = move |s| parse_value(s).ok();
         return PromptBuilder {
             prompt: self.prompt,
             parse: Box::new(parse),
@@ -74,7 +73,7 @@ impl<'a> DefaultPromptBuilder<'a> {
         self,
         validate_value: F,
     ) -> PromptBuilder<'a, String> {
-        let parse = move |s| if validate_value(&s) { Answer(s) } else { Error };
+        let parse = move |s| if validate_value(&s) { Some(s) } else { None };
         return PromptBuilder {
             prompt: self.prompt,
             parse: Box::new(parse),

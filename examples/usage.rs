@@ -32,13 +32,31 @@ fn main() {
         .error_prompt("Must be of legal drinking age");
 
     let password = ask("What is your password?").prompt::<Option<String>>();
-    /*
-    ask::<Option<bool>>("Do you want to continue? (q to exit)")
-        .escape_with("q")
-        .prompt();*/
 
+    let mut numbers = vec![];
+    loop {
+        if let Some(n) = ask("Give me a number (q to quit):")
+            .parse_as::<u64>()
+            .exit_on("q")
+            .and_on("Q")
+            .error_prompt("Enter a number or 'q' to exit")
+        {
+            numbers.push(n);
+        } else {
+            break;
+        }
+    }
+
+    println!();
     println!("Nice to meet you {}", name);
     println!("How does it feel to be {}?", age);
+    if !numbers.contains(&lucky_number) {
+        println!(
+            "If {} is your lucky number, why didn't you include it in the numbers you gave me?",
+            lucky_number
+        );
+    }
+    println!();
     println!("Your lucky number {} was chosen!", lucky_number);
     println!("Maybe that wasn't so lucky, you've been chosen to hack.");
     println!(

@@ -1,15 +1,11 @@
 use std::io::{stdin, stdout, BufRead, Write};
 
-mod result;
-use result::PromptResult;
-use result::PromptResult::*;
-
 mod default;
 use default::DefaultPromptBuilder;
 
 pub struct PromptBuilder<'a, T> {
     prompt: &'a str,
-    parse: Box<Fn(String) -> PromptResult<T> + 'a>,
+    parse: Box<Fn(String) -> Option<T> + 'a>,
 }
 
 pub fn ask(prompt: &str) -> DefaultPromptBuilder {
@@ -36,17 +32,14 @@ impl<'a, T: 'a> PromptBuilder<'a, T> {
             }
             buffer.pop(); // remove newline
             match (self.parse)(buffer) {
-                Answer(value) => {
+                Some(value) => {
                     return value;
                 }
-                Error => {
+                None => {
                     output.write(error.as_bytes()).unwrap();
                     output.write(b"\n").unwrap();
                     output.flush().unwrap();
                     buffer = String::new();
-                }
-                Exit => {
-                    unimplemented!();
                 }
             }
         }
@@ -64,7 +57,7 @@ impl<'a, T: 'a> PromptBuilder<'a, T> {
     ) -> PromptBuilder<'a, U> {
         // destructuring so the compiler knows that only parse needs to live long enough to be used by the closure
         let PromptBuilder { prompt, parse } = self;
-        let parse = move |s| parse(s).and_then(|t| parse_value(t).into());
+        let parse = move |s| parse(s).and_then(|t| parse_value(t).ok());
         return PromptBuilder {
             prompt,
             parse: Box::new(parse),
@@ -78,7 +71,7 @@ impl<'a, T: 'a> PromptBuilder<'a, T> {
         // destructuring so the compiler knows that only parse needs to live long enough to be used by the closure
         let PromptBuilder { prompt, parse } = self;
         // TODO why is the inner closure needed, and how can it be avoided?
-        let parse = move |s| parse(s).and_then(|t| transform_value(t).into());
+        let parse = move |s| parse(s).and_then(|t| transform_value(t));
         return PromptBuilder {
             prompt,
             parse: Box::new(parse),
@@ -88,15 +81,56 @@ impl<'a, T: 'a> PromptBuilder<'a, T> {
     pub fn validate<F: Fn(&T) -> bool + 'a>(self, validate_value: F) -> PromptBuilder<'a, T> {
         // destructuring so the compiler knows that only parse needs to live long enough to be used by the closure
         let PromptBuilder { prompt, parse } = self;
-        let parse =
-            move |s| parse(s).and_then(|t| if validate_value(&t) { Answer(t) } else { Error });
+        let parse = move |s| parse(s).and_then(|t| if validate_value(&t) { Some(t) } else { None });
         return PromptBuilder {
             prompt,
             parse: Box::new(parse),
         };
     }
+
+    pub fn default_on(self, value: &'a str) -> PromptBuilder<'a, T>
+    where
+        T: Default,
+    {
+        // destructuring so the compiler knows that only parse needs to live long enough to be used by the closure
+        let PromptBuilder { prompt, parse } = self;
+        let parse = move |s| {
+            if s == value {
+                Some(T::default())
+            } else {
+                parse(s)
+            }
+        };
+        return PromptBuilder {
+            prompt,
+            parse: Box::new(parse),
+        };
+    }
+
+    pub fn exit_on(self, value: &'a str) -> PromptBuilder<'a, Option<T>> {
+        // destructuring so the compiler knows that only parse needs to live long enough to be used by the closure
+        let PromptBuilder { prompt, parse } = self;
+        let parse = move |s| {
+            if s == value {
+                Some(None) // Not an error, we have a value, it is None
+            } else {
+                Some(parse(s))
+            }
+        };
+        return PromptBuilder {
+            prompt,
+            parse: Box::new(parse),
+        };
+    }
+
+    // TODO implement exit_with(self, value: &'a str, result: &'a T)
 }
 
+impl<'a, T: 'a> PromptBuilder<'a, Option<T>> {
+    pub fn and_on(self, value: &'a str) -> PromptBuilder<'a, Option<T>> {
+        self.default_on(value)
+    }
+}
 #[cfg(test)]
 mod tests {
     use ask;
@@ -116,7 +150,7 @@ mod tests {
         let value: String = ask("Value?").prompt_to(&input[..], &mut output);
 
         assert_eq!(output_string(output), "Value? ");
-        assert_eq!(value, "My Value")
+        assert_eq!(value, "My Value");
     }
 
     #[test]
@@ -143,7 +177,18 @@ mod tests {
             output_string(output),
             "Value? Please enter a value.\nValue? Please enter a value.\nValue? "
         );
-        assert_eq!(value, "My Value")
+        assert_eq!(value, "My Value");
     }
 
+    #[test]
+    fn exit_on_exits() {
+        let (input, mut output) = setup(b"n\n");
+        let value: Option<u64> = ask("Number, n to exit?")
+            .parse_as::<u64>()
+            .exit_on("n")
+            .error_prompt_to("Please enter a number", &input[..], &mut output);
+
+        assert_eq!(output_string(output), "Number, n to exit? ");
+        assert_eq!(value, None);
+    }
 }
