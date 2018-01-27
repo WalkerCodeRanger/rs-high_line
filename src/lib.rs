@@ -4,7 +4,7 @@ use std::io::{stdin, stdout, BufRead, Write};
 mod default;
 use default::DefaultPromptBuilder;
 
-pub struct PromptBuilder<'a, T, P: Fn(String) -> Option<T>> {
+pub struct PromptBuilder<'a, T, P: 'a + Fn(String) -> Option<T>> {
     prompt: &'a str,
     parse: P,
 }
@@ -92,7 +92,10 @@ impl<'a, T, P: Fn(String) -> Option<T>> PromptBuilder<'a, T, P> {
         };
     }
 
-    pub fn default_on(self, value: &'a str) -> PromptBuilder<'a, T, impl Fn(String) -> Option<T>>
+    pub fn default_on(
+        self,
+        value: &'a str,
+    ) -> PromptBuilder<'a, T, impl 'a + Fn(String) -> Option<T>>
     where
         T: Default,
     {
@@ -114,7 +117,7 @@ impl<'a, T, P: Fn(String) -> Option<T>> PromptBuilder<'a, T, P> {
     pub fn exit_on(
         self,
         value: &'a str,
-    ) -> PromptBuilder<'a, Option<T>, impl Fn(String) -> Option<Option<T>>> {
+    ) -> PromptBuilder<'a, Option<T>, impl 'a + Fn(String) -> Option<Option<T>>> {
         // destructuring so the compiler knows that only parse needs to live long enough to be used by the closure
         let PromptBuilder { prompt, parse } = self;
         let parse = move |s| {
@@ -137,7 +140,7 @@ impl<'a, T: 'a, P: Fn(String) -> Option<Option<T>>> PromptBuilder<'a, Option<T>,
     pub fn and_on(
         self,
         value: &'a str,
-    ) -> PromptBuilder<'a, Option<T>, impl Fn(String) -> Option<Option<T>>> {
+    ) -> PromptBuilder<'a, Option<T>, impl 'a + Fn(String) -> Option<Option<T>>> {
         self.default_on(value)
     }
 }
