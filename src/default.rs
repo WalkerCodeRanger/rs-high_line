@@ -39,44 +39,46 @@ impl<'a> DefaultPromptBuilder<'a> {
         return self.parse_as::<T>().error_prompt(T::ERROR_PROMPT);
     }
 
-    pub fn parse_as<T: DefaultPrompt + 'a>(self) -> PromptBuilder<'a, T> {
-        let parse = move |s| T::parse(s).into();
+    pub fn parse_as<T: DefaultPrompt + 'a>(
+        self,
+    ) -> PromptBuilder<'a, T, impl Fn(String) -> Option<T>> {
+        let parse = move |s| T::parse(s);
         return PromptBuilder {
             prompt: self.prompt,
-            parse: Box::new(parse),
+            parse: parse,
         };
     }
 
     pub fn parse<U, P: Fn(String) -> Result<U, E> + 'a, E>(
         self,
         parse_value: P,
-    ) -> PromptBuilder<'a, U> {
+    ) -> PromptBuilder<'a, U, impl Fn(String) -> Option<U>> {
         let parse = move |s| parse_value(s).ok();
         return PromptBuilder {
             prompt: self.prompt,
-            parse: Box::new(parse),
+            parse: parse,
         };
     }
 
     pub fn transform<U, F: Fn(String) -> Option<U> + 'a>(
         self,
         transform_value: F,
-    ) -> PromptBuilder<'a, U> {
-        let parse = move |s| transform_value(s).into();
+    ) -> PromptBuilder<'a, U, impl Fn(String) -> Option<U>> {
+        let parse = move |s| transform_value(s);
         return PromptBuilder {
             prompt: self.prompt,
-            parse: Box::new(parse),
+            parse: parse,
         };
     }
 
     pub fn validate<F: Fn(&String) -> bool + 'a>(
         self,
         validate_value: F,
-    ) -> PromptBuilder<'a, String> {
+    ) -> PromptBuilder<'a, String, impl Fn(String) -> Option<String>> {
         let parse = move |s| if validate_value(&s) { Some(s) } else { None };
         return PromptBuilder {
             prompt: self.prompt,
-            parse: Box::new(parse),
+            parse: parse,
         };
     }
 }
