@@ -28,7 +28,7 @@ fn main() {
                 None
             }
         })
-        .validate(|age| age >= &21)
+        .validate(|age| *age >= 21)
         .error_prompt("Must be of legal drinking age");
 
     let password = ask("What is your password?").prompt::<Option<String>>();
