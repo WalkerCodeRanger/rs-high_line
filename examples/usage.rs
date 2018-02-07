@@ -6,6 +6,29 @@ use chrono::{Datelike, Local};
 use std::str::FromStr;
 
 fn main() {
+    // Desired API:
+
+    /*
+    ask("What is your name?").prompt();
+
+    ask::<u64>("What is your lucky number?").prompt();
+
+    ask("Enter your birth date:")
+        .parse(Date::from_str)
+        .transform(|date| Date::today() - d)
+        .transform(|duration| duration.in_years())
+        .validate(|age| age >= 21)
+        .error_prompt("Must be of legal drinking age");
+
+    ask::<Option<String>>("What is your password?").prompt();
+
+    ask::<Option<bool>>("Do you want to continue? (q to exit)")
+        .escape_with("q")
+        .prompt();
+    */
+
+    // Final API:
+
     let name: String = ask("What is your name?").prompt();
 
     let lucky_number: u64 = ask("What is your lucky number?").prompt();
