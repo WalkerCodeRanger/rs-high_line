@@ -26,7 +26,9 @@ impl<'a, T, P: Fn(String) -> Option<T>> PromptBuilder<'a, T, P> {
             output.write(b" ").unwrap();
             output.flush().unwrap();
 
-            input.read_line(&mut buffer).unwrap();
+            if input.read_line(&mut buffer).unwrap() == 0
+                { panic!("Tried to ask, reached end of input"); }
+
             // TODO why isn't there a better way to read a line without the newline?
             if buffer.ends_with("\r\n") {
                 buffer.pop(); // remove extra newline char
@@ -196,12 +198,21 @@ mod tests {
     #[test]
     fn exit_on_exits() {
         let (input, mut output) = setup(b"n\n");
-        let value: Option<u64> = ask("Number, n to exit?")
+        let value = ask("Number, n to exit?")
             .parse_as::<u64>()
             .exit_on("n")
             .error_prompt_to("Please enter a number", &input[..], &mut output);
 
         assert_eq!(output_string(output), "Number, n to exit? ");
         assert_eq!(value, None);
+    }
+
+    #[test]
+    #[should_panic]
+    fn end_of_input_panics() {
+        let (input, mut output) = setup(b"not a number\n");
+        ask("Give me a number (q to quit):")
+            .parse_as::<u64>()
+            .error_prompt_to("Enter a number or 'q' to exit", &input[..], &mut output);
     }
 }
