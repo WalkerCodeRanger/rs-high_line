@@ -1,0 +1,75 @@
+using System.IO;
+
+namespace Adamant.Samples.HighLine
+{
+    public class PromptBuilder<T>
+    {
+        // TODO: should the default lifetime be ~self instead of ~own?
+        private let input: ~self mut TextReader;
+        private let output: ~self mut TextWriter;
+        private let prompt: ~self string;
+        private var parse: ~own (~own string) -> ~own T?
+
+        internal new(input: ~self mut TextReader, output: ~self mut TextReader, prompt: ~self string, parse: ~own (~own string) -> ~own T?)
+            no throw
+        {
+            this.input = input;
+            this.output = output;
+            this.prompt = prompt;
+            // Note: move to pass ownership of the reference to the field
+            this.parse = move parse;
+        }
+
+        public ErrorPrompt(self, errorMessage: string) -> ~own T
+            may throw IOException
+        {
+            loop
+            {
+                // TODO try may be required on statements that could throw
+                self.output.Write(self.prompt);
+                self.output.Write(": ");
+                self.output.Flush();
+
+                // Note: use of throw expression which has type `!`
+                let line = self.input.ReadLine() ?? throw new EndOfStreamException();
+
+                match self.parse(line)
+                {
+                    value?
+                    {
+                        return value;
+                    },
+                    none
+                    {
+                        self.output.WriteLine(errorMessage);
+                    }
+                }
+            }
+        }
+
+        // TODO: return should be bounded by lifetime of self too (further evidence own isn't a lifetime)
+        // TODO: have ignored any concerns about Fn vs FnOnce vs FnMut
+        public Parse<TResult>(~own self, parse: (~own T) -> Result<TResult, _>) -> own~parse PromptBuilder<TResult>
+            no throw
+        {
+            // Note: `?..` is the conditional accept operator
+            // Note: `parse()` returns a Result<,> but the `??` operator works on it too
+            return new PromptBuilder(self.input, self.output, self.prompt, (s) -> self.parse(s)?..parse() ?? none);
+        }
+
+        // TODO: return should be bounded by lifetime of self too (further evidence own isn't a lifetime)
+        public Transform<TResult>(~own self, transform: (~own T) -> TResult?) -> own~transform PromptBuilder<TResult>
+        {
+            // Note: `?..` is the conditional accept operator
+            return new PromptBuilder(self.input, self.output, self.prompt, (s) -> self.parse(s)?..transform());
+        }
+
+        // TODO: return should be bounded by lifetime of self too (further evidence own isn't a lifetime)
+        public Validate(~own self, validate: (T) -> bool) -> own~validate PromptBuilder<T>
+        {
+            // Note: .Where() is like Rust Option<T>::filter()
+            self.parse = (s) -> self.parse(s).Where(validate);
+            return self;
+        }
+    }
+}

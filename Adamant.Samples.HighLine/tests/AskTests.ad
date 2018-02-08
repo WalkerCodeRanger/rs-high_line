@@ -1,0 +1,76 @@
+using System.Console;
+using System.UnitTesting;
+
+namespace Adamant.Samples.HighLine
+{
+    // Note: implementing the interface of a class
+    internal class FakeConsole: : Console
+    {
+        // Note: fields are "virtual" and can be overridden by fields or properties (i.e. set and get)
+        public let Input: ~own mut TextReader;
+        public let Output: ~own mut TextWriter;
+
+        public new(input: ~self string)
+        {
+            Input = new StringReader(input);
+            Output = new StringWriter();
+        }
+
+        // Note: elided return lifetime of ~self
+        public get OutputText(self) -> string
+        {
+            // Note: buffer is a StringBuilder which can be borrowed as a string
+            return Output.Buffer;
+        }
+
+        // TODO: what about the other properties and methods? Need a mocking framework?
+    }
+
+    // Note: attributes and inferred throws clauses
+    @test
+    pubic ``Ask() for string``(console: mut Console) -> void
+    {
+        let console = mut new FakeConsole("My Value\n");
+        let value = console.Ask("Value?").Prompt();
+
+        Assert.Equal("Value? ", console.OutputText);
+        Assert.Equal("My Value", value);
+    }
+
+    @test
+    public ``Ask() for string with .ErrorPrompt() does not accept empty``()
+    {
+        let console = mut new FakeConsole("\nMy Value\n");
+        let value = console.Ask("Value?").ErrorPrompt("Please enter a value.");
+
+        Assert.Equal("Value? Please enter a value.\nValue? ", console.OutputText);
+        Assert.Equal("My Value", value);
+    }
+
+    @test
+    public ``Ask() repeats error prompt``()
+    {
+        let console = mut new FakeConsole("\n\nMy Value\n");
+        let value = console.Ask("Value?").Prompt();
+
+        Assert.Equal("Value? Please enter a value.\nValue? Please enter a value.\nValue? ", console.OutputText);
+        Assert.Equal("My Value", value);
+    }
+
+    @test
+    public ``ExitOn() exits``()
+    {
+        let console = mut new FakeConsole("n\n");
+        let value = console.Ask<uint64>("Value?").ExitOn("n").ErrorPrompt("Please enter a number");
+
+        Assert.Equal("Number, n to exit? ", console.OutputText);
+        Assert.IsNone(value);
+    }
+
+    @test
+    public ``end of stream exception``()
+    {
+        let console = mut new FakeConsole("not a number\n");
+        Assert.Throws(() -> console.Ask<uint64>("Give me a number:").ExitOn("n").ErrorPrompt("Please enter a number"));
+    }
+}

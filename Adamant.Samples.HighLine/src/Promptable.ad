@@ -1,0 +1,49 @@
+using System;
+
+namespace Adamant.Samples.HighLine
+{
+    // TODO: Not sure if an `interface` keyword will be added
+    public abstract class Promptable
+    {
+        public abstract Parse(value: ~own string) -> ~own Self?
+            no throw;
+        public const ErrorPrompt: ~static string;
+    }
+
+    // Note: implementing the interface of a class
+    public extend struct string: : Promptable
+    {
+        public Parse(value: ~own string) -> ~own string?
+            no throw
+        {
+            // Note: `if` expression uses `match` like syntax `=>`
+            return if value.IsEmpty() => none else => value;
+        }
+
+        public const ErrorPrompt: ~static string = "Please enter a value.";
+    }
+
+    public extend struct string?: : Promptable
+    {
+        // Note: `?` is like Rust Option<T> so it can be nested
+        public Parse(value: ~own string) -> ~own string??
+            no throw
+        {
+            return value;
+        }
+
+        public const ErrorPrompt: ~static string = "<Can't Fail>";
+    }
+
+    public extend struct uint64: : Promptable
+    {
+        public Parse(value: ~own string) -> uint64?
+            no throw
+        {
+            // Note: Parse() returns a Result<string, FormatError> because parsing is an expected error
+            return uint64.Parse(value).Ok();
+        }
+
+        public const ErrorPrompt: ~static string = "Please enter a non-negative number.";
+    }
+}

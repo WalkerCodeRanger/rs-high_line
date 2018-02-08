@@ -1,0 +1,65 @@
+using System.Collections;
+using System.Console;
+using Adamant.Samples.HighLine;
+
+// Note: Take console as argument to main
+// Note: ignored issues of async/await
+public Main(console: mut Console) -> void
+{
+    let name = console.Ask("What is your name?").Prompt();
+
+    // Note: type inference
+    let luckyNumber: uint64 = console.Ask("What is your lucky number?").Prompt();
+
+    let age = console.Ask("Enter your birth date (YYYY-MM-DD):")
+        // TODO: not sure on parsing and formating API
+        .Parse(LocalDatePattern.Iso.Parse)
+        .Transform((birthDate) ->
+            {
+                // TODO: not sure on system clock API
+                let today = SystemClock.Now().InLocalZone().Date;
+                if birthDate < today
+                {
+                    let birthYear = birthDate.Year;
+                    let currentYear = today.Year;
+                    let birthday = new LocalDate(currentYear, birthDate.Month, birthDate.Day);
+                    // Note: var is equivalent of `let mut` for structs
+                    var age = current_year - birth_year;
+                    if today < birthday
+                        { age -= 1; }
+                    return age;
+                }
+                else
+                    { return none; }
+            })
+        .Validate((age) -> age >= 21)
+        .ErrorPrompt("Must be of legal drinking age");
+    
+    let password = console.Ask<string?>("What is your password?").Prompt();
+
+    let number: mut = new List();
+    loop
+    {
+        if let n? = console.Ask<uint64>("Give me a number (q to quit):")
+            .ExitOn("q")
+            .ExitOn("Q")
+            .ErrorPrompt("Enter a number or 'q' to exit")
+        {
+            numbers.Add(n);
+        }
+        else
+            { break; }
+    }
+
+    console.WriteLine();
+    console.WriteLine("Nice to meet you {name}");
+    console.WriteLine("How does it feel to be {age}?");
+    if not numbers.Contains(luckyNumber)
+    {
+        console.WriteLine("If {luckyNumber} is your lucky number, why didn't you include it in the numbers you gave me?");
+    }
+    console.WriteLine();
+    console.WriteLine("Your lucky number {luckyNumber} was chosen!");
+    console.WriteLine("Maybe that wasn't so lucky, you've been chosen to hack.");
+    console.WriteLine("You just gave us your password: {password ?? ""}");
+}

@@ -1,0 +1,25 @@
+using System.Console;
+
+namespace Adamant.Samples.HighLine
+{
+    // TODO: may require fully qualified class name here
+    public extend class Console
+    {
+        // TODO: Maybe this implies that own isn't a lifetime, but something else
+        public Ask(mut self, prompt: ~self string) -> own~self PromptBuilder<string>
+            no throw
+        {
+            // TODO: not sure about the syntax for accessing the associated function
+            // TODO: require this syntax to avoid breaking change from adding associated function?
+            // Note: safe to pass the ~static function here to something that expects ownership given that it is inherently immutable
+            return new PromptBuilder(mut self.Input, mut self.Output, prompt, <string as Promptable>.Parse);
+        }
+
+        public Ask<T>(mut self, prompt: ~self string) -> own~self PromptBuilder<T>
+            no throw
+            where T: Promptable
+        {
+            return new PromptBuilder(mut self.Input, mut self.Output, prompt, T.Parse);
+        }
+    }
+}
